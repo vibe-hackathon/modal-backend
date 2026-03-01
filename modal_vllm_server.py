@@ -16,7 +16,7 @@ import modal
 MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
 MODEL_REVISION = "main"
 N_GPU = 1
-GPU_CONFIG = f"A100:{N_GPU}"  # single GPU, no count suffix needed
+GPU_CONFIG = f"H100:{N_GPU}"  # single GPU, no count suffix needed
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -34,11 +34,15 @@ vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 # Container image
 # ---------------------------------------------------------------------------
 vllm_image = (
-    modal.Image.debian_slim(python_version="3.12")
-    .pip_install(
-        "vllm",
-        "fastapi[standard]",
-        "uvicorn[standard]",
+    modal.Image.from_registry(
+        "nvidia/cuda:12.8.0-devel-ubuntu22.04", add_python="3.12"
+    )
+    .pip_install("uv")
+    .run_commands(
+        # vLLM nightly via uv — stable pip resolves to 0.15.1 which
+        # doesn't support Qwen3.5 (qwen3_5_moe architecture).
+        "uv pip install vllm --prerelease=allow --extra-index-url https://wheels.vllm.ai/nightly --system",
+        "uv pip install fastapi[standard] uvicorn[standard] --system",
     )
 )
 
@@ -93,6 +97,14 @@ def serve():
         # once you've verified everything works.
         "--enforce-eager",
     ]
+
+    # Qwen3+ models need reasoning and tool-call parsers; Qwen2.5 does not.
+    if MODEL_NAME.startswith("Qwen/Qwen3"):
+        cmd += [
+            "--reasoning-parser", "qwen3",
+            "--enable-auto-tool-choice",
+            "--tool-call-parser", "qwen3_coder",
+        ]
 
     print(f"[modal_vllm_server] Starting vLLM with command:\n  {' '.join(cmd)}")
     subprocess.Popen(" ".join(cmd), shell=True)

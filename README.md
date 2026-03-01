@@ -18,7 +18,7 @@ Once deployed, Modal will print a URL like:
 
 You can then call it exactly like the OpenAI API:
 ```bash
-curl https://zhongyi070622--minimax-vllm-openai-server-serve-dev.modal.run/v1/chat/completions \
+curl https://zhongyi070622--minimax-vllm-openai-server-serve.modal.run/v1/chat/completions \
     -H "Content-Type: application/json" \
     -d '{
     "model": "Qwen/Qwen2.5-7B-Instruct",
